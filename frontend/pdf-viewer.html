@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>GesturePDF Pro — Gesture-Controlled PDF Viewer</title>
+  <meta name="description" content="Advanced gesture-controlled PDF viewer with smooth scrolling, highlighting, pen drawing, and notes — powered by MediaPipe hand tracking." />
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <link rel="stylesheet" href="/static/css/pdf-viewer.css" />
+</head>
+
+<body>
+
+  <!-- ═══ HEADER ═══ -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">✋</div>
+      GesturePDF Pro
+    </div>
+    <div class="header-right">
+      <div id="status-dot"></div>
+      <span id="cam-label">Camera off</span>
+    </div>
+  </header>
+
+  <!-- ═══ TOOLBAR ═══ -->
+  <div id="toolbar">
+    <button class="tb-btn" id="btn-prev">◀ Prev</button>
+    <span id="page-info">— / —</span>
+    <button class="tb-btn" id="btn-next">Next ▶</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-zoom-out">− Zoom</button>
+    <span id="zoom-info">150%</span>
+    <button class="tb-btn" id="btn-zoom-in">+ Zoom</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-search" style="color: var(--accent2);">🔎 OCR Search</button>
+    <button class="tb-tool-btn active" id="btn-tool-pen" data-tool="pen">✍️ Pen</button>
+    <button class="tb-tool-btn" id="btn-tool-hl" data-tool="highlighter">🟡 Highlight</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn danger-btn" id="btn-clear" style="color: var(--danger);">🗑 Clear Page</button>
+  </div>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main">
+
+    <!-- PDF Area -->
+    <div id="pdf-area">
+      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-icon">📄</div>
+        <h2>Open a PDF</h2>
+        <p>Drag & drop your PDF here or click to browse. Then enable your camera for full gesture control.</p>
+        <button class="browse-btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">Browse File</button>
+        <input type="file" id="file-input" accept=".pdf,application/pdf" style="display:none" />
+      </div>
+      <div id="pdf-container"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+
+      <!-- Camera Section -->
+      <div class="s-section">
+        <div class="s-title">📹 Hand Tracking</div>
+        <div id="cam-box">
+          <video id="webcam" autoplay playsinline muted></video>
+          <canvas id="hand-canvas"></canvas>
+          <div id="gesture-badge">—</div>
+        </div>
+        <button id="start-btn">📷 Enable Camera</button>
+      </div>
+
+      <!-- Tool & Color -->
+      <div class="s-section">
+        <div class="s-title">🎨 Active Color</div>
+        <div class="color-row" id="color-palette">
+          <div class="swatch selected" data-color="#FFD700" style="background:#FFD700" title="Yellow"></div>
+          <div class="swatch" data-color="#86efac" style="background:#86efac" title="Green"></div>
+          <div class="swatch" data-color="#93c5fd" style="background:#93c5fd" title="Blue"></div>
+          <div class="swatch" data-color="#f9a8d4" style="background:#f9a8d4" title="Pink"></div>
+          <div class="swatch" data-color="#fca5a5" style="background:#fca5a5" title="Red"></div>
+          <div class="swatch" data-color="#d8b4fe" style="background:#d8b4fe" title="Purple"></div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="s-section">
+        <div class="s-title">📝 Notes & Highlights</div>
+        <div id="notes-list">
+          <div class="notes-empty">No annotations yet</div>
+        </div>
+        <div class="notes-actions">
+          <button id="btn-export-notes">📥 Export JSON</button>
+          <button id="btn-clear-all-notes" class="danger">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="s-section">
+        <div class="s-title">🔎 PDF Search</div>
+        <div class="search-box">
+          <div id="search-preview" class="search-preview empty">Click search to open a transparent writing pad, write the query in air, then pause.</div>
+          <div class="search-actions">
+            <button id="btn-run-search">Open Search Pad</button>
+            <button id="btn-clear-search">Clear Search</button>
+          </div>
+          <div id="search-status" class="search-status">No search run yet.</div>
+          <div id="search-results" class="search-results"></div>
+        </div>
+        <div class="notes-actions" style="margin-top:0.55rem;">
+          <button id="btn-toggle-click-controls">Enable Click Controls</button>
+        </div>
+      </div>
+
+      <!-- Gesture Guide -->
+      <div class="s-section">
+        <div class="s-title">🖐️ Gesture Guide</div>
+        <div class="g-item">
+          <div class="g-icon">☝️</div>
+          <div><span class="g-label">Index finger</span><br><span class="g-desc">Works by selected mode (cursor/pen/search)</span></div>
+        </div>
+        <div class="g-item">
+          <div class="g-icon">✌️</div>
+          <div><span class="g-label">Two fingers</span><br><span class="g-desc">No action (disabled)</span></div>
+        </div>
+        <div class="g-item">
+          <div class="g-icon">✊</div>
+          <div><span class="g-label">Fist</span><br><span class="g-desc">Smooth scroll PDF up/down</span></div>
+        </div>
+        <div class="g-item">
+          <div class="g-icon">✋</div>
+          <div><span class="g-label">Open hand</span><br><span class="g-desc">No action</span></div>
+        </div>
+        <div class="g-item">
+          <div class="g-icon">🎯</div>
+          <div><span class="g-label">Hover over toolbar</span><br><span class="g-desc">Point at button to select tool</span></div>
+        </div>
+        <div class="g-item">
+          <div class="g-icon">🔎</div>
+          <div><span class="g-label">OCR Search</span><br><span class="g-desc">Select Search, write with index finger, then pause</span></div>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="s-section">
+        <div class="s-title">💡 Tips</div>
+        <p class="tips-text">
+          • Keep hand 30–60 cm from camera<br>
+          • Good lighting improves accuracy<br>
+          • Gestures need ~0.3s to activate<br>
+          • Use toolbar buttons as fallback<br>
+          • Click page in Notes to navigate
+        </p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Virtual floating toolbar (gesture-selectable) -->
+  <div class="virtual-toolbar" id="virtual-toolbar">
+    <!-- Tool Selection -->
+    <div class="v-btn active" data-tool="cursor">🖱 Cursor</div>
+    <div class="v-btn" data-tool="pen">✍️ Pen</div>
+    <div class="v-btn" data-tool="highlighter">🟡 Highlight</div>
+    <div class="v-btn" data-tool="eraser">🧹 Eraser</div>
+    <div class="v-btn" data-tool="search">🔎 Search</div>
+    
+    <!-- Separator -->
+    <div class="v-separator"></div>
+    
+    <!-- Zoom Controls -->
+    <div class="v-btn v-zoom-btn" data-action="zoom-in">🔍+ Zoom In</div>
+    <div class="v-btn v-zoom-btn" data-action="zoom-out">🔍- Zoom Out</div>
+    
+    <!-- Separator -->
+    <div class="v-separator"></div>
+    
+    <!-- Brush Size Controls -->
+    <div class="v-btn v-brush-btn" data-action="brush-increase">🖌️+ Bigger</div>
+    <div class="v-btn v-brush-btn" data-action="brush-decrease">🖌️- Smaller</div>
+    
+    <!-- Separator -->
+    <div class="v-separator"></div>
+    
+    <!-- Clear Search Button -->
+    <div class="v-btn v-action-btn" data-action="clear-search">🧹 Clear Search</div>
+    
+    <!-- Separator -->
+    <div class="v-separator"></div>
+    
+    <!-- Color Picker -->
+    <div class="v-btn v-color-btn" data-color="#FFD700" style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);">🟡</div>
+    <div class="v-btn v-color-btn" data-color="#86efac" style="background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);">🟢</div>
+    <div class="v-btn v-color-btn" data-color="#93c5fd" style="background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 100%);">🔵</div>
+    <div class="v-btn v-color-btn" data-color="#f9a8d4" style="background: linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%);">🔴</div>
+    <div class="v-btn v-color-btn" data-color="#d8b4fe" style="background: linear-gradient(135deg, #d8b4fe 0%, #a855f7 100%);">🟣</div>
+  </div>
+
+  <!-- Gesture pill (floating indicator) -->
+  <div id="gesture-pill">
+    <div class="dot"></div>
+    <span id="pill-text">—</span>
+  </div>
+
+  <!-- Transparent overlay for temporary search handwriting -->
+  <div id="search-overlay-layer">
+    <canvas id="search-overlay-canvas"></canvas>
+    <div id="search-overlay-hint">Write your search text in the air, then pause for auto-search.</div>
+  </div>
+
+  <!-- Cursor overlay -->
+  <canvas id="cursor-canvas"></canvas>
+
+  <script type="module" src="/static/js/pdf-viewer/main.js"></script>
+</body>
+
+</html>

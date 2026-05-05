@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air Drawing — Hand Gesture Text Recognizer</title>
+  <link rel="stylesheet" href="/static/styles.css?v=2" />
+</head>
+
+<body>
+
+  <!-- Loading overlay (shown while camera + MediaPipe loads) -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <h2>Loading hand tracking...</h2>
+    <p style="color:#555;font-size:13px">Allow camera access when prompted</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- TOOLBAR — Colors, tools, OCR controls                      -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div id="toolbar">
+    <!-- Color buttons (built dynamically by JS) -->
+    <div id="color-btns"></div>
+
+    <!-- Divider -->
+    <div style="width:1px;height:28px;background:#333;margin:0 4px"></div>
+
+    <!-- Tool buttons -->
+    <button class="tool-btn" id="btn-erase">Eraser</button>
+    <button class="tool-btn" id="btn-undo">Undo</button>
+    <button class="tool-btn" id="btn-redo">Redo</button>
+    <button class="tool-btn danger" id="btn-clear">Clear</button>
+
+    <!-- Brush size slider -->
+    <div class="brush-control">
+      <span>Brush</span>
+      <input type="range" id="brush-range" min="2" max="28" value="10" />
+      <span id="brush-val">10px</span>
+    </div>
+
+    <!-- OCR mode selector -->
+    <select class="ocr-select" id="ocr-mode">
+      <option value="sentence">OCR: Sentence</option>
+      <option value="continuous">OCR: Continuous Append</option>
+      <option value="line">OCR: Line</option>
+      <option value="word">OCR: Word</option>
+    </select>
+
+    <!-- OCR trigger buttons -->
+    <button class="tool-btn" id="btn-ocr" style="border-color:#336">Run OCR</button>
+    <button class="tool-btn" id="btn-ocr-all" style="border-color:#446;background:#1a1a30">OCR All</button>
+    <button class="tool-btn" id="btn-focus" style="border-color:#888">Focus Board</button>
+    <a class="tool-btn" id="btn-media-player" href="/mediaplayer" style="border-color:#c62;background:#2a1510">🎬 Media Player</a>
+    <a class="tool-btn" id="btn-pdf-viewer" href="/pdfviewer" style="border-color:#267">📄 PDF Viewer</a>
+
+    <!-- Training sample controls -->
+    <input class="label-input" id="sample-label" type="text" placeholder="Label for training sample" />
+    <button class="tool-btn" id="btn-save-sample" style="border-color:#264">Save Sample</button>
+    <span class="sample-status" id="sample-status">No sample saved yet</span>
+
+    <!-- Status indicators -->
+    <span id="conn-status" class="disconnected">● Offline</span>
+    <span id="pan-indicator" style="font-size:11px;color:#555;padding:3px 8px;background:#1a1a2e;border-radius:4px;">Canvas: 0% → 0% ↓</span>
+    <button class="tool-btn" id="btn-reset-view" style="border-color:#555;font-size:12px;">Reset View</button>
+    <button class="tool-btn" id="btn-download" style="border-color:#264;font-size:12px;">⬇ Download</button>
+
+    <!-- Mode label (shows DRAWING / ERASING / PEN UP etc.) -->
+    <div id="mode-label">◌ READY</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- CANVAS AREA — Webcam video + drawing surface + overlay      -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div id="canvas-wrapper">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="draw-canvas"></canvas>
+    <canvas id="overlay-canvas"></canvas>
+    <div id="hand-loss-indicator">Hand tracking lost...</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- OCR RESULT BAR — Shows recognized text                      -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div id="ocr-bar">
+    <span>Recognized:</span>
+    <span id="ocr-text">No text recognized yet</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- STATUS BAR — Gesture instructions                           -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div id="status-bar">
+    <strong>INDEX</strong> = Draw • <strong>INDEX + MIDDLE</strong> = Lift Pen • <strong>FIST</strong> = Erase • <strong>3 FINGERS</strong> = Pan Canvas • Hover buttons 0.5s to select • Auto-OCR after 2.5s pause
+  </div>
+
+  <!-- Load the application (ES module) -->
+  <script type="module" src="/static/js/app.js"></script>
+
+</body>
+</html>

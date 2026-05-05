@@ -1,0 +1,25 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+drawing.png
+
+# All extra documentation/notes (not needed in repo)
+notes/
+
+# OCR debug images (auto-generated, can be large)
+artifacts/ocr_debug/
+
+# Generated train/val/test manifests
+data/manifests/
+
+# Fine-tuned model checkpoints (large; add back if you want to ship them)
+artifacts/trocr_airdraw/
+artifacts/trocr_airdraw_test/
+artifacts/trocr_airdraw_test_local/
+artifacts/trocr_large_model/
+artifacts/trocr_finetuned/
+artifacts/trocr_base_finetuned/
+
+# Large WASM files - will be included in Docker build but not in git
+frontend/vendor/mediapipe/wasm/*.wasm
