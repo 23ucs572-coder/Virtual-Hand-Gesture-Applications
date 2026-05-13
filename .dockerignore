@@ -1,64 +1,31 @@
-# Don't send these to Docker build context
-venv/
-.venv/
-__pycache__/
+__pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-
-# Git
-.git/
+env/
+venv/
+.venv
+.git
 .gitignore
-.gitattributes
-
-# Documentation (not needed in container)
-docs/
-training/
-*.md
-!README_HF.md
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Environment
+.dockerignore
 .env
 .env.local
-
-# Debug artifacts (keep only essential ones)
-artifacts/ocr_debug/*.png
-
-# Training artifacts (we only need the final model)
-artifacts/trocr_airdraw/
-artifacts/trocr_finetuned/
-artifacts/trocr_base_finetuned/
-
-# Data manifests
+.env.*.local
+node_modules
+npm-debug.log
+.DS_Store
+*.log
+.pytest_cache
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.vscode
+.idea
+artifacts/trocr_large_model
+artifacts/trocr_finetuned
+custom_dataset/
 data/
-
-# Scripts
-cleanup_model.sh
-START_SERVER_AND_TEST.sh
-
-# Deployment docs
-DEPLOYMENT_*.md
-QUICK_DEPLOY.md
-FINAL_STATUS.md
-FREE_DEPLOYMENT_OPTIONS.md
-SWITCH_MODELS_GUIDE.md
+training/

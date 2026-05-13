@@ -17,9 +17,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 try:
-    from .ocr import get_ocr_backend_status, run_ocr
-except ImportError:
-    from ocr import get_ocr_backend_status, run_ocr
+    from backend.ocr import get_ocr_backend_status, run_ocr
+except (ImportError, ModuleNotFoundError):
+    try:
+        from .ocr import get_ocr_backend_status, run_ocr
+    except (ImportError, ModuleNotFoundError):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        from ocr import get_ocr_backend_status, run_ocr
 
 # ═══════════════════════════════════════════════════════════════════
 # FASTAPI BACKEND — Air Drawing Web App
