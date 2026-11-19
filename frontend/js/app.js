@@ -48,6 +48,13 @@ const oCtx           = overCanvas.getContext("2d");
 const modeLabel      = document.getElementById("mode-label");
 const ocrBar         = document.getElementById("ocr-bar");
 const ocrText        = document.getElementById("ocr-text");
+const spellSuggestion = document.getElementById("spell-suggestion");
+const spellCorrectedText = document.getElementById("spell-corrected-text");
+const spellCorrectionList = document.getElementById("spell-correction-list");
+const spellActions = document.getElementById("spell-actions");
+const spellFeedback = document.getElementById("spell-feedback");
+const acceptCorrectionBtn = document.getElementById("btn-accept-correction");
+const keepOriginalBtn = document.getElementById("btn-keep-original");
 const connStatus     = document.getElementById("conn-status");
 const sampleInput    = document.getElementById("sample-label");
 const sampleStatus   = document.getElementById("sample-status");
@@ -62,6 +69,9 @@ const colorBtnsEl    = document.getElementById("color-btns");
 
 // Pointer smoother (reduces hand tracking jitter)
 const pointerFilter = new PointFilter();
+let currentOcrRawText = "";
+let currentOcrSuggestedText = "";
+let currentOcrIsContinuous = false;
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -71,6 +81,69 @@ const pointerFilter = new PointFilter();
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
+
+function hideSpellSuggestions() {
+  spellSuggestion.hidden = true;
+  spellActions.hidden = true;
+  spellCorrectionList.replaceChildren();
+  spellFeedback.textContent = "";
+}
+
+function showOcrResult(rawText, suggestedText = rawText, corrections = [], continuous = false) {
+  currentOcrRawText = rawText;
+  currentOcrSuggestedText = suggestedText || rawText;
+  currentOcrIsContinuous = continuous;
+  ocrText.textContent = rawText;
+  spellCorrectedText.textContent = currentOcrSuggestedText;
+  spellCorrectionList.replaceChildren();
+  spellFeedback.textContent = "";
+
+  const hasSuggestion = currentOcrSuggestedText !== rawText;
+  spellSuggestion.hidden = !hasSuggestion;
+  spellActions.hidden = !hasSuggestion;
+
+  for (const correction of corrections) {
+    const item = document.createElement("span");
+    item.className = "spell-correction-item";
+    const words = document.createElement("span");
+    words.textContent = `${correction.original} → ${correction.suggestion}`;
+    item.appendChild(words);
+
+    const rememberBtn = document.createElement("button");
+    rememberBtn.type = "button";
+    rememberBtn.className = "remember-word-btn";
+    rememberBtn.textContent = "Remember original";
+    rememberBtn.dataset.word = correction.original.toLocaleLowerCase();
+    rememberBtn.addEventListener("click", () => {
+      if (!state.wsReady || !state.ws || state.ws.readyState !== WebSocket.OPEN) {
+        spellFeedback.textContent = "Backend is offline; word was not saved.";
+        return;
+      }
+      rememberBtn.disabled = true;
+      rememberBtn.textContent = "Saving…";
+      state.ws.send(JSON.stringify({ type: "add_word", word: correction.original }));
+    });
+    item.appendChild(rememberBtn);
+    spellCorrectionList.appendChild(item);
+  }
+  ocrBar.style.display = "flex";
+}
+
+acceptCorrectionBtn.onclick = () => {
+  ocrText.textContent = currentOcrSuggestedText;
+  if (currentOcrIsContinuous) {
+    state.continuousTextBuffer = currentOcrSuggestedText;
+    state.continuousSuggestedBuffer = currentOcrSuggestedText;
+  }
+  hideSpellSuggestions();
+};
+
+keepOriginalBtn.onclick = () => {
+  if (currentOcrIsContinuous) {
+    state.continuousSuggestedBuffer = state.continuousTextBuffer;
+  }
+  hideSpellSuggestions();
+};
 
 /** Update the mode label in the toolbar. */
 function setMode(m) {
@@ -539,6 +612,7 @@ async function triggerOCR() {
 
   try {
     state.ocrInFlight = true;
+    hideSpellSuggestions();
     const modeSelect = document.getElementById("ocr-mode").value;
     state.inFlightContinuous = (modeSelect === "continuous");
     const modeVal = state.inFlightContinuous ? "word" : modeSelect;
@@ -580,6 +654,7 @@ async function triggerOCRAll() {
   try {
     state.ocrInFlight = true;
     state.inFlightContinuous = false;
+    hideSpellSuggestions();
     const modeVal = document.getElementById("ocr-mode").value === "continuous"
       ? "sentence"
       : document.getElementById("ocr-mode").value;
@@ -736,29 +811,61 @@ function connectWS() {
     state.ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
 
+      if (msg.type === "word_added") {
+        document.querySelectorAll(".remember-word-btn").forEach((button) => {
+          if (button.dataset.word === String(msg.word || "").toLocaleLowerCase()) {
+            button.textContent = "Saved";
+            button.disabled = true;
+          }
+        });
+        spellFeedback.textContent = `Added “${msg.word}” to your word list.`;
+      }
+
+      if (msg.type === "word_add_error") {
+        document.querySelectorAll(".remember-word-btn").forEach((button) => {
+          if (button.dataset.word === String(msg.word || "").toLocaleLowerCase()) {
+            button.disabled = false;
+            button.textContent = "Remember original";
+          }
+        });
+        spellFeedback.textContent = msg.message || "Could not save that word.";
+      }
+
       if (msg.type === "ocr_result") {
         state.ocrInFlight = false;
         if (msg.success && msg.text) {
+          const rawSegment = msg.text;
+          const suggestedSegment = msg.suggested_text || rawSegment;
+          const wasContinuous = state.inFlightContinuous;
+          let rawText = rawSegment;
+          let suggestedText = suggestedSegment;
           if (state.inFlightContinuous) {
-            state.continuousTextBuffer = (state.continuousTextBuffer + " " + msg.text).trim();
-            ocrText.textContent = state.continuousTextBuffer;
+            state.continuousTextBuffer = (state.continuousTextBuffer + " " + rawSegment).trim();
+            state.continuousSuggestedBuffer = (state.continuousSuggestedBuffer + " " + suggestedSegment).trim();
+            rawText = state.continuousTextBuffer;
+            suggestedText = state.continuousSuggestedBuffer;
             dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             resetStrokeState();
-          } else {
-            ocrText.textContent = msg.text;
           }
+          showOcrResult(rawText, suggestedText, msg.corrections || [], wasContinuous);
+          if (msg.spellcheck_available === false) {
+            spellFeedback.textContent = "Install backend requirements to enable spelling suggestions.";
+          }
+          state.inFlightContinuous = false;
         } else {
-          ocrText.textContent = state.inFlightContinuous
+          const wasContinuous = state.inFlightContinuous;
+          const failureText = wasContinuous
             ? state.continuousTextBuffer + " [Could not recognize]"
             : "Could not recognize — try writing larger";
+          showOcrResult(failureText);
+          state.inFlightContinuous = false;
         }
-        ocrBar.style.display = "flex";
       }
 
       if (msg.type === "error") {
         state.ocrInFlight = false;
-        ocrText.textContent = msg.message || "OCR failed";
-        ocrBar.style.display = "flex";
+        state.inFlightContinuous = false;
+        showOcrResult(msg.message || "OCR failed");
       }
     };
   } catch (e) {
@@ -916,6 +1023,8 @@ const vbtnCallbacks = {
     ocrBar.style.display = "none";
     ocrText.textContent = "";
     state.continuousTextBuffer = "";
+    state.continuousSuggestedBuffer = "";
+    hideSpellSuggestions();
     state.lastDrawT = 0;
     resetStrokeState();
   },
@@ -1086,6 +1195,8 @@ document.getElementById("btn-clear").onclick = () => {
   ocrBar.style.display = "none";
   ocrText.textContent = "";
   state.continuousTextBuffer = "";
+  state.continuousSuggestedBuffer = "";
+  hideSpellSuggestions();
   state.lastDrawT = 0;
   resetStrokeState();
 };

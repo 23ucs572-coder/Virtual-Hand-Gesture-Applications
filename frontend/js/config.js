@@ -114,6 +114,7 @@ export const state = {
   // OCR
   ocrInFlight: false,
   continuousTextBuffer: "",
+  continuousSuggestedBuffer: "",
   inFlightContinuous: false,
 
   // WebSocket

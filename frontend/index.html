@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Air Drawing — Hand Gesture Text Recognizer</title>
-  <link rel="stylesheet" href="/static/styles.css?v=11" />
+  <link rel="stylesheet" href="/static/styles.css?v=12" />
 </head>
 
 <body>
@@ -108,8 +108,18 @@
   <!-- OCR RESULT BAR — Shows recognized text                      -->
   <!-- ═══════════════════════════════════════════════════════════ -->
   <div id="ocr-bar">
-    <span>Recognized:</span>
-    <span id="ocr-text">No text recognized yet</span>
+    <div class="ocr-result-content">
+      <div class="ocr-original-row"><span class="ocr-caption">Recognized</span><span id="ocr-text">No text recognized yet</span></div>
+      <div id="spell-suggestion" hidden>
+        <div class="ocr-suggestion-row"><span class="ocr-caption">Suggestion</span><span id="spell-corrected-text"></span></div>
+        <div id="spell-correction-list"></div>
+      </div>
+    </div>
+    <div id="spell-actions" hidden>
+      <button class="tool-btn accept-correction" id="btn-accept-correction" type="button">Use suggestion</button>
+      <button class="tool-btn" id="btn-keep-original" type="button">Keep original</button>
+      <span id="spell-feedback" aria-live="polite"></span>
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════ -->

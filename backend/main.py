@@ -26,6 +26,11 @@ except (ImportError, ModuleNotFoundError):
         sys.path.insert(0, str(Path(__file__).parent))
         from ocr import get_ocr_backend_status, run_ocr
 
+try:
+    from backend.spell_correction import add_custom_word, is_spellchecker_available, suggest_corrections
+except (ImportError, ModuleNotFoundError):
+    from .spell_correction import add_custom_word, is_spellchecker_available, suggest_corrections
+
 # ═══════════════════════════════════════════════════════════════════
 # FASTAPI BACKEND — Air Drawing Web App
 #
@@ -176,6 +181,7 @@ async def health():
         "frontend": FRONTEND_DIR.exists(),
         "model": MODEL_PATH.exists(),
         "ocr": get_ocr_backend_status(load_model=False),
+        "spellcheck": is_spellchecker_available(),
     }
 
 
@@ -236,6 +242,21 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text(json.dumps({"type": "pong"}))
                 continue
 
+            if msg.get("type") == "add_word":
+                try:
+                    saved_word = add_custom_word(msg.get("word", ""))
+                    await websocket.send_text(json.dumps({
+                        "type": "word_added",
+                        "word": saved_word,
+                    }))
+                except (ValueError, RuntimeError) as exc:
+                    await websocket.send_text(json.dumps({
+                        "type": "word_add_error",
+                        "word": msg.get("word", ""),
+                        "message": str(exc),
+                    }))
+                continue
+
             if msg.get("type") == "ocr":
                 mode = msg.get("mode", "sentence")
                 b64_img = msg.get("image", "")
@@ -268,9 +289,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 result = run_ocr(canvas, mode=mode, preprocessed=preprocessed)
 
                 if result:
+                    suggested_text, corrections = suggest_corrections(result)
                     await websocket.send_text(json.dumps({
                         "type": "ocr_result",
                         "text": result,
+                        "suggested_text": suggested_text,
+                        "corrections": corrections,
+                        "spellcheck_available": is_spellchecker_available(),
                         "success": True
                     }))
                     print(f"OCR result: '{result}'")

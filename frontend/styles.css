@@ -87,6 +87,31 @@ video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cov
 .spinner { width: 42px; height: 42px; border: 3px solid #26344a; border-top-color: var(--cyan); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 #hand-loss-indicator { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #922f42e8; color: white; padding: 12px 20px; border: 1px solid #ffffff40; border-radius: 10px; font-size: 14px; font-weight: 700; display: none; z-index: 5; pointer-events: none; }
+
+/* OCR text and spell-check suggestions remain distinct until accepted. */
+#ocr-bar { align-items: flex-start; gap: 16px; }
+.ocr-result-content { display: flex; flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 8px; }
+.ocr-original-row, .ocr-suggestion-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.ocr-caption { flex: 0 0 94px; color: var(--cyan); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+#ocr-text, #spell-corrected-text { min-width: 0; overflow-wrap: anywhere; font-size: 16px; }
+#spell-suggestion[hidden], #spell-actions[hidden] { display: none; }
+#spell-suggestion { display: flex; flex-direction: column; gap: 7px; padding-top: 8px; border-top: 1px solid #ffffff16; }
+.ocr-suggestion-row .ocr-caption { color: #a9c3ff; }
+#spell-corrected-text { color: #e4edff; }
+#spell-correction-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.spell-correction-item { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid #ffffff18; border-radius: 8px; background: #0c1726; color: #d8e3f3; font-size: 11px; }
+.remember-word-btn { padding: 3px 6px; border: 1px solid #5eead433; border-radius: 6px; background: #16323b; color: #9aefdc; font: 600 10px "Segoe UI", sans-serif; cursor: pointer; }
+.remember-word-btn:hover { background: #1d4650; }
+.remember-word-btn:disabled { opacity: .65; cursor: default; }
+#spell-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 6px; }
+#spell-actions .tool-btn { min-height: 32px; font-size: 11px; }
+#spell-actions .accept-correction { color: #07181b; background: linear-gradient(135deg, #5eead4, #69c8f2); }
+#spell-feedback { color: #9db0c7; font-size: 10px; }
+@media (max-width: 680px) {
+  #ocr-bar { flex-direction: column; padding: 10px; }
+  #spell-actions { width: 100%; }
+  .ocr-caption { flex-basis: 82px; }
+}
 @media (max-width: 1120px) {
   body { overflow: auto; min-height: 100vh; height: auto; }
   .workspace { min-height: 760px; }
