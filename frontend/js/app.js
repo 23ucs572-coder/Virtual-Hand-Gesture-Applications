@@ -48,6 +48,7 @@ const oCtx           = overCanvas.getContext("2d");
 const modeLabel      = document.getElementById("mode-label");
 const ocrBar         = document.getElementById("ocr-bar");
 const ocrText        = document.getElementById("ocr-text");
+const spellStatus = document.getElementById("spell-status");
 const spellSuggestion = document.getElementById("spell-suggestion");
 const spellCorrectedText = document.getElementById("spell-corrected-text");
 const spellCorrectionList = document.getElementById("spell-correction-list");
@@ -83,13 +84,15 @@ function clamp(value, min, max) {
 }
 
 function hideSpellSuggestions() {
+  spellStatus.hidden = true;
+  spellStatus.textContent = "";
   spellSuggestion.hidden = true;
   spellActions.hidden = true;
   spellCorrectionList.replaceChildren();
   spellFeedback.textContent = "";
 }
 
-function showOcrResult(rawText, suggestedText = rawText, corrections = [], continuous = false) {
+function showOcrResult(rawText, suggestedText = rawText, corrections = [], continuous = false, spellcheckAvailable = null) {
   currentOcrRawText = rawText;
   currentOcrSuggestedText = suggestedText || rawText;
   currentOcrIsContinuous = continuous;
@@ -101,6 +104,10 @@ function showOcrResult(rawText, suggestedText = rawText, corrections = [], conti
   const hasSuggestion = currentOcrSuggestedText !== rawText;
   spellSuggestion.hidden = !hasSuggestion;
   spellActions.hidden = !hasSuggestion;
+  spellStatus.hidden = hasSuggestion || spellcheckAvailable == null;
+  spellStatus.textContent = spellcheckAvailable === false
+    ? "Spell checker unavailable — install backend requirements."
+    : "No spelling suggestions.";
 
   for (const correction of corrections) {
     const item = document.createElement("span");
@@ -847,10 +854,7 @@ function connectWS() {
             dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             resetStrokeState();
           }
-          showOcrResult(rawText, suggestedText, msg.corrections || [], wasContinuous);
-          if (msg.spellcheck_available === false) {
-            spellFeedback.textContent = "Install backend requirements to enable spelling suggestions.";
-          }
+          showOcrResult(rawText, suggestedText, msg.corrections || [], wasContinuous, msg.spellcheck_available);
           state.inFlightContinuous = false;
         } else {
           const wasContinuous = state.inFlightContinuous;

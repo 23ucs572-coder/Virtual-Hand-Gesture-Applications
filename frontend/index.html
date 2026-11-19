@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Air Drawing — Hand Gesture Text Recognizer</title>
-  <link rel="stylesheet" href="/static/styles.css?v=12" />
+  <link rel="stylesheet" href="/static/styles.css?v=13" />
 </head>
 
 <body>
@@ -110,6 +110,7 @@
   <div id="ocr-bar">
     <div class="ocr-result-content">
       <div class="ocr-original-row"><span class="ocr-caption">Recognized</span><span id="ocr-text">No text recognized yet</span></div>
+      <div id="spell-status" hidden aria-live="polite"></div>
       <div id="spell-suggestion" hidden>
         <div class="ocr-suggestion-row"><span class="ocr-caption">Suggestion</span><span id="spell-corrected-text"></span></div>
         <div id="spell-correction-list"></div>
