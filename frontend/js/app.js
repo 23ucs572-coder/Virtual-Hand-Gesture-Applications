@@ -104,10 +104,14 @@ function showOcrResult(rawText, suggestedText = rawText, corrections = [], conti
   const hasSuggestion = currentOcrSuggestedText !== rawText;
   spellSuggestion.hidden = !hasSuggestion;
   spellActions.hidden = !hasSuggestion;
-  spellStatus.hidden = hasSuggestion || spellcheckAvailable == null;
-  spellStatus.textContent = spellcheckAvailable === false
-    ? "Spell checker unavailable — install backend requirements."
-    : "No spelling suggestions.";
+  spellStatus.hidden = hasSuggestion;
+  if (spellcheckAvailable === true) {
+    spellStatus.textContent = "Spell check ran: no safe suggestions for this text.";
+  } else if (spellcheckAvailable === false) {
+    spellStatus.textContent = "Spell checker unavailable — install backend requirements.";
+  } else {
+    spellStatus.textContent = "Spell check status unavailable — restart the backend from the spellchecker branch.";
+  }
 
   for (const correction of corrections) {
     const item = document.createElement("span");
