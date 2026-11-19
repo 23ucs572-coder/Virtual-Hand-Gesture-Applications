@@ -114,11 +114,29 @@ function showOcrResult(rawText, suggestedText = rawText, corrections = [], conti
   }
 
   for (const correction of corrections) {
-    const item = document.createElement("span");
+    const item = document.createElement("div");
     item.className = "spell-correction-item";
     const words = document.createElement("span");
-    words.textContent = `${correction.original} → ${correction.suggestion}`;
+    words.textContent = `${correction.original} →`;
     item.appendChild(words);
+
+    let selectedSuggestion = correction.suggestion;
+    for (const candidate of correction.candidates || [correction.suggestion]) {
+      const candidateBtn = document.createElement("button");
+      candidateBtn.type = "button";
+      candidateBtn.className = "spell-candidate-btn";
+      candidateBtn.textContent = candidate;
+      candidateBtn.setAttribute("aria-pressed", String(candidate === selectedSuggestion));
+      candidateBtn.addEventListener("click", () => {
+        currentOcrSuggestedText = currentOcrSuggestedText.replace(selectedSuggestion, candidate);
+        selectedSuggestion = candidate;
+        spellCorrectedText.textContent = currentOcrSuggestedText;
+        item.querySelectorAll(".spell-candidate-btn").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button === candidateBtn));
+        });
+      });
+      item.appendChild(candidateBtn);
+    }
 
     const rememberBtn = document.createElement("button");
     rememberBtn.type = "button";

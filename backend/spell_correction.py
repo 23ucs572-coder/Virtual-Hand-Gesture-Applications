@@ -60,6 +60,11 @@ def _match_case(source, replacement):
     return replacement
 
 
+def _ranked_candidates(word, limit=5):
+    candidates = [candidate for candidate in _spell.candidates(word) if len(candidate) >= 3]
+    return sorted(candidates, key=lambda candidate: _spell.word_frequency[candidate], reverse=True)[:limit]
+
+
 def suggest_corrections(text):
     """Return (suggested text, per-word suggestions); never mutates input."""
     if not text or _spell is None:
@@ -68,6 +73,28 @@ def suggest_corrections(text):
     _refresh_domain_words()
     corrections = []
 
+    # TrOCR often splits a short handwritten word into a one-letter token and
+    # a short uppercase token (for example, "S BX" for "SBX"). Offer
+    # dictionary alternatives for the joined shape instead of silently
+    # discarding both tokens as too short to check.
+    split_token_pattern = re.compile(r"(?<![\w])([A-Z])\s+([A-Z]{2,3})(?![\w])")
+
+    def replace_split_token(match):
+        original = match.group(0)
+        joined = (match.group(1) + match.group(2)).casefold()
+        candidates = _ranked_candidates(joined)
+        if not candidates:
+            return original
+        suggestion = _match_case(original, candidates[0])
+        corrections.append({
+            "original": original,
+            "suggestion": suggestion,
+            "candidates": [_match_case(original, candidate) for candidate in candidates],
+        })
+        return suggestion
+
+    text = split_token_pattern.sub(replace_split_token, text)
+
     def replace_word(match):
         original = match.group(0)
         normalized = original.casefold()
@@ -75,12 +102,17 @@ def suggest_corrections(text):
         if len(normalized) < 3 or original.isupper() or normalized not in _spell.unknown([normalized]):
             return original
 
-        candidate = _spell.correction(normalized)
+        candidates = _ranked_candidates(normalized)
+        candidate = candidates[0] if candidates else _spell.correction(normalized)
         if not candidate or candidate == normalized:
             return original
 
         replacement = _match_case(original, candidate)
-        corrections.append({"original": original, "suggestion": replacement})
+        corrections.append({
+            "original": original,
+            "suggestion": replacement,
+            "candidates": [_match_case(original, candidate) for candidate in candidates],
+        })
         return replacement
 
     suggested = WORD_PATTERN.sub(replace_word, text)
