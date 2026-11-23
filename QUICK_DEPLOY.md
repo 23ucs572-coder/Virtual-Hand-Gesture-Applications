@@ -54,6 +54,11 @@ In Vercel Dashboard:
    ```
 3. Redeploy
 
+To enable AI spell suggestions, add `OPENAI_API_KEY` (and optionally
+`OPENAI_MODEL`) to the **backend host's** environment variables, such as Railway
+Variables. Do not add the provider key to Vercel/frontend variables. Restart or
+redeploy the backend after saving it.
+
 ## Done! 🎉
 
 Your app is live at: `https://your-app.vercel.app`

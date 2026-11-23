@@ -1,4 +1,5 @@
 import os
+import asyncio
 import base64
 import csv
 import json
@@ -30,6 +31,11 @@ try:
     from backend.spell_correction import add_custom_word, is_spellchecker_available, suggest_corrections
 except (ImportError, ModuleNotFoundError):
     from .spell_correction import add_custom_word, is_spellchecker_available, suggest_corrections
+
+try:
+    from backend.llm_spell_correction import enhance_spell_suggestions, is_llm_spellchecker_configured, suggest_next_words
+except (ImportError, ModuleNotFoundError):
+    from .llm_spell_correction import enhance_spell_suggestions, is_llm_spellchecker_configured, suggest_next_words
 
 # ═══════════════════════════════════════════════════════════════════
 # FASTAPI BACKEND — Air Drawing Web App
@@ -182,6 +188,7 @@ async def health():
         "model": MODEL_PATH.exists(),
         "ocr": get_ocr_backend_status(load_model=False),
         "spellcheck": is_spellchecker_available(),
+        "llm_spellcheck": is_llm_spellchecker_configured(),
     }
 
 
@@ -225,6 +232,19 @@ async def save_sample(payload: SampleSaveRequest):
     }
 
 
+async def send_next_word_suggestions(websocket: WebSocket, sentence: str, request_id):
+    suggestions, suggestion_status = await suggest_next_words(sentence, limit=4)
+    try:
+        await websocket.send_text(json.dumps({
+            "type": "next_word_suggestions",
+            "request_id": request_id,
+            "suggestions": suggestions,
+            "status": suggestion_status,
+        }))
+    except Exception as exc:
+        print(f"Could not return next-word suggestions: {exc}")
+
+
 
 
 @app.websocket("/ws")
@@ -255,6 +275,16 @@ async def websocket_endpoint(websocket: WebSocket):
                         "word": msg.get("word", ""),
                         "message": str(exc),
                     }))
+                continue
+
+            if msg.get("type") == "next_word_suggestions":
+                asyncio.create_task(
+                    send_next_word_suggestions(
+                        websocket,
+                        msg.get("sentence", ""),
+                        msg.get("request_id"),
+                    )
+                )
                 continue
 
             if msg.get("type") == "ocr":
@@ -290,12 +320,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if result:
                     suggested_text, corrections = suggest_corrections(result)
+                    suggested_text, corrections, llm_status = await enhance_spell_suggestions(
+                        result, suggested_text, corrections
+                    )
                     await websocket.send_text(json.dumps({
                         "type": "ocr_result",
                         "text": result,
                         "suggested_text": suggested_text,
                         "corrections": corrections,
                         "spellcheck_available": is_spellchecker_available(),
+                        "llm_spellcheck_status": llm_status,
                         "success": True
                     }))
                     print(f"OCR result: '{result}'")

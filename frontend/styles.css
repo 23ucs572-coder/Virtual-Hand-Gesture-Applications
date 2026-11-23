@@ -96,6 +96,7 @@ video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cov
 #spell-status { margin-left: 106px; color: #9db0c7; font-size: 11px; }
 #ocr-text, #spell-corrected-text { min-width: 0; overflow-wrap: anywhere; font-size: 16px; }
 #spell-suggestion[hidden], #spell-actions[hidden] { display: none; }
+#spell-suggestion-row[hidden] { display: none; }
 #spell-suggestion { display: flex; flex-direction: column; gap: 7px; padding-top: 8px; border-top: 1px solid #ffffff16; }
 .ocr-suggestion-row .ocr-caption { color: #a9c3ff; }
 #spell-corrected-text { color: #e4edff; }
@@ -110,7 +111,25 @@ video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cov
 #spell-actions .tool-btn { min-height: 32px; font-size: 11px; }
 #spell-actions .accept-correction { color: #07181b; background: linear-gradient(135deg, #5eead4, #69c8f2); }
 #spell-feedback { color: #9db0c7; font-size: 10px; }
+.sentence-builder { display: flex; flex-direction: column; flex-shrink: 0; align-items: stretch; justify-content: flex-start; gap: 5px; min-height: 54px; padding: 8px 14px; border: 1px solid #ffffff16; border-radius: 12px; background: linear-gradient(110deg, #111c2b, #101827); }
+.sentence-line { display: flex; align-items: baseline; gap: 12px; min-width: 0; flex: 1; }
+.sentence-caption { flex: 0 0 auto; color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+#sentence-text { min-width: 0; overflow-wrap: anywhere; color: #edf3ff; font-size: 14px; font-weight: 650; }
+#next-word-panel { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 5px 0; }
+#next-word-panel[hidden] { display: none; }
+#next-word-status { color: #9db0c7; font-size: 11px; }
+#next-word-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.next-word-option { min-height: 28px; padding: 0 10px; border: 1px solid #5eead455; border-radius: 8px; background: #15303a; color: #b9f6e8; font: 650 11px "Segoe UI", sans-serif; cursor: pointer; }
+.next-word-option:hover, .next-word-option[aria-pressed="true"] { background: #5eead4; color: #07181b; }
+.sentence-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+#sentence-hint { max-width: 350px; color: #93a2b8; font-size: 10px; line-height: 1.35; }
+.sentence-action { min-height: 30px; padding: 0 9px; font-size: 10px; }
+.sentence-action:disabled { opacity: .42; cursor: default; transform: none; }
+.spell-candidate-btn { min-width: 66px; }
 @media (max-width: 680px) {
+  .sentence-builder { align-items: stretch; flex-direction: column; gap: 7px; }
+  .sentence-controls { flex-wrap: wrap; }
+  #sentence-hint { flex: 1 1 100%; max-width: none; }
   #ocr-bar { flex-direction: column; padding: 10px; }
   #spell-actions { width: 100%; }
   .ocr-caption { flex-basis: 82px; }
@@ -260,6 +279,45 @@ body { height: 100vh; min-height: 0; overflow: hidden; }
 }
 @media (max-width: 680px) {
   #toolbar .sample-status { display: inline; }
+}
+
+/* Result and sentence panels float over the board instead of resizing it. */
+#bottom-popups {
+  position: fixed;
+  z-index: 40;
+  left: clamp(8px, 1vw, 18px);
+  right: clamp(8px, 1vw, 18px);
+  bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: min(42vh, 390px);
+  overflow-y: auto;
+  pointer-events: none;
+  scrollbar-width: thin;
+}
+#bottom-popups > * { flex: 0 0 auto; pointer-events: auto; }
+#bottom-popups #ocr-bar {
+  max-height: 28vh;
+  overflow-y: auto;
+  backdrop-filter: blur(14px);
+}
+#bottom-popups #sentence-builder {
+  max-height: 24vh;
+  overflow-y: auto;
+  background: linear-gradient(110deg, rgba(17, 28, 43, .94), rgba(16, 24, 39, .94));
+  backdrop-filter: blur(14px);
+}
+@media (max-width: 680px) {
+  #bottom-popups {
+    left: 6px;
+    right: 6px;
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    max-height: 46vh;
+    gap: 5px;
+  }
+  #bottom-popups #ocr-bar { max-height: 30vh; }
+  #bottom-popups #sentence-builder { max-height: 25vh; padding: 7px 9px; }
 }
 
 /* Fit every drawing control on screen; reserve the flexible area for the board. */
@@ -469,4 +527,34 @@ body { height: 100vh; min-height: 0; overflow: hidden; }
   #toolbar .button-set { gap: 4px; }
   #toolbar .tool-btn, #toolbar .ocr-select, #toolbar .label-input { min-height: 27px; padding-left: 6px; padding-right: 6px; font-size: 10px; }
   #toolbar .brush-control { gap: 4px; font-size: 10px; }
+}
+
+/* Keep OCR and sentence popups in one compact row without changing type size. */
+#bottom-popups {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(400px, 1.35fr);
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+#bottom-popups #ocr-bar {
+  grid-column: 1;
+  min-width: 0;
+}
+#bottom-popups #sentence-builder {
+  grid-column: 2;
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  #bottom-popups {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  #bottom-popups #ocr-bar,
+  #bottom-popups #sentence-builder {
+    grid-column: 1;
+    min-width: 0;
+  }
 }

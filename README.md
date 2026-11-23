@@ -146,6 +146,28 @@ The backend:
 - `backend/main.py`
 - `backend/ocr.py`
 
+### Optional LLM spelling suggestions
+
+The backend can ask an OpenAI-compatible chat completions API for context-aware
+alternatives to OCR words. Suggestions remain selectable in the UI; the LLM does
+not silently overwrite recognized text. Local spell checking works without an
+LLM key and remains the fallback if the provider is not configured or unavailable.
+
+Set these variables in the backend environment to enable it:
+
+```text
+OPENAI_API_KEY=your-provider-api-key
+OPENAI_MODEL=gpt-4o-mini
+# Optional for an OpenAI-compatible provider:
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+For local PowerShell, set `$env:OPENAI_API_KEY` before starting Uvicorn. For a
+hosted backend, add the key in that backend host's environment-variable settings
+(for example, Railway Variables), then restart or redeploy the backend. The key
+must only be configured on the backend, never in frontend/Vercel variables.
+OCR text is sent to the configured provider when the key is present.
+
 ---
 
 # Dataset Format

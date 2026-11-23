@@ -56,6 +56,7 @@ export const MAX_UNDO_STEPS     = 20;
 export const LOST_HAND_RESET_FRAMES = 15;  // frames without hand before full reset
 export const GESTURE_STABLE_FRAMES  = 5;   // frames to confirm a gesture change
 export const FINGER_THRESHOLD       = 0.05;
+export const FINGER_RELEASE_THRESHOLD = 0.02;
 export const FINGER_HISTORY_SIZE    = 3;   // frames for finger-up averaging
 export const GESTURE_HISTORY_SIZE   = 3;   // frames for gesture smoothing
 export const LANDMARK_HISTORY_SIZE  = 3;   // frames for outlier detection
@@ -88,6 +89,18 @@ export const state = {
   // Hand tracking
   handPresent: false,
   handLossCounter: 0,
+  handTracks: { Left: null, Right: null },
+
+  // Left-hand sentence and spell-choice controls
+  sentenceWords: [],
+  leftGestureCandidate: "IDLE",
+  leftStableGesture: "IDLE",
+  leftGestureHistory: [],
+  leftFingerStates: [false, false, false, false],
+  leftThumbOpen: false,
+  leftGestureSince: 0,
+  leftGestureConsumed: false,
+  lastLeftGesture: "IDLE",
 
   // Gesture stability
   stableGesture: "IDLE",
@@ -97,6 +110,8 @@ export const state = {
 
   // History buffers
   fingerHistory: [],
+  fingerStates: [false, false, false, false],
+  rightPinchActive: false,
   gestureHistory: [],
   landmarkHistory: [],
   undoStack: [],

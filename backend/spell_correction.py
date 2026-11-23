@@ -19,6 +19,7 @@ VALID_CUSTOM_WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*\Z", re.UNICODE)
 
 _spell = SpellChecker(language="en", distance=1) if SpellChecker else None
 _loaded_domain_words = set()
+_word_buckets = None
 
 
 def _load_domain_words():
@@ -44,12 +45,14 @@ def _load_domain_words():
 
 
 def _refresh_domain_words():
+    global _word_buckets
     if _spell is None:
         return
     new_words = _load_domain_words() - _loaded_domain_words
     if new_words:
         _spell.word_frequency.load_words(new_words)
         _loaded_domain_words.update(new_words)
+        _word_buckets = None
 
 
 def _match_case(source, replacement):
@@ -63,6 +66,62 @@ def _match_case(source, replacement):
 def _ranked_candidates(word, limit=5):
     candidates = [candidate for candidate in _spell.candidates(word) if len(candidate) >= 3]
     return sorted(candidates, key=lambda candidate: _spell.word_frequency[candidate], reverse=True)[:limit]
+
+
+def _edit_distance(left, right, cutoff=2):
+    if abs(len(left) - len(right)) > cutoff:
+        return cutoff + 1
+    previous = list(range(len(right) + 1))
+    for row, left_char in enumerate(left, start=1):
+        current = [row]
+        for column, right_char in enumerate(right, start=1):
+            current.append(min(
+                current[-1] + 1,
+                previous[column] + 1,
+                previous[column - 1] + (left_char != right_char),
+            ))
+        if min(current) > cutoff:
+            return cutoff + 1
+        previous = current
+    return previous[-1]
+
+
+def _nearby_known_words(word, limit=4, max_distance=2):
+    """Find common alternatives near an OCR word, even when it is valid."""
+    global _word_buckets
+    if _word_buckets is None:
+        _word_buckets = {}
+        for candidate, frequency in _spell.word_frequency.dictionary.items():
+            if frequency > 0 and candidate.isalpha():
+                _word_buckets.setdefault(len(candidate), []).append(candidate)
+
+    nearby_by_length = {}
+    for length in range(max(1, len(word) - max_distance), len(word) + max_distance + 1):
+        for candidate in _word_buckets.get(length, ()):
+            if candidate == word or len(candidate) < 2:
+                continue
+            distance = _edit_distance(word, candidate, max_distance)
+            if 0 < distance <= max_distance:
+                nearby_by_length.setdefault(length, []).append((distance, _spell.word_frequency[candidate], candidate))
+
+    for entries in nearby_by_length.values():
+        entries.sort(key=lambda entry: (entry[0], -entry[1], entry[2]))
+
+    # Keep a useful mix of one-letter deletions and same-length alternatives;
+    # frequency-only ranking tends to crowd out plausible OCR readings.
+    selected = []
+    shorter = nearby_by_length.get(len(word) - 1, [])
+    if shorter:
+        selected.append(shorter[0][2])
+    same_length = nearby_by_length.get(len(word), [])
+    selected.extend(entry[2] for entry in same_length[:max(0, limit - len(selected))])
+    for length in (len(word) + 1, len(word) - 2, len(word) + 2):
+        for _, _, candidate in nearby_by_length.get(length, []):
+            if len(selected) >= limit:
+                break
+            if candidate not in selected:
+                selected.append(candidate)
+    return selected[:limit]
 
 
 def suggest_corrections(text):
@@ -95,11 +154,47 @@ def suggest_corrections(text):
 
     text = split_token_pattern.sub(replace_split_token, text)
 
+    # TrOCR can split a short word into two separately recognized letters
+    # (for example, "I S" for "is"). Keep it selectable so the user can
+    # distinguish a joined word from two intentional single-letter tokens.
+    split_letter_pattern = re.compile(r"(?<![\w])([A-Za-z])\s+([A-Za-z])(?![\w])")
+
+    def replace_split_letters(match):
+        original = match.group(0)
+        joined = (match.group(1) + match.group(2)).casefold()
+        if _spell.word_frequency[joined] <= 0:
+            return original
+        alternatives = _nearby_known_words(joined, limit=3, max_distance=1)
+        corrections.append({
+            "original": original,
+            "suggestion": joined,
+            "candidates": [joined] + alternatives,
+        })
+        return joined
+
+    text = split_letter_pattern.sub(replace_split_letters, text)
+
     def replace_word(match):
         original = match.group(0)
         normalized = original.casefold()
-        # Short words, acronyms, and numeric-like tokens are easy to overcorrect.
-        if len(normalized) < 3 or original.isupper() or normalized not in _spell.unknown([normalized]):
+        # Acronyms and very short words are easy to overcorrect.
+        if len(normalized) < 3 or original.isupper():
+            return original
+
+        if normalized not in _spell.unknown([normalized]):
+            # TrOCR may produce a valid but unintended short word (e.g. "arm"
+            # for "am"). Keep the OCR output as-is, but offer nearby choices.
+            alternatives = (
+                _nearby_known_words(normalized)
+                if len(normalized) <= 4 and _spell.word_frequency[normalized] < 8_000_000
+                else []
+            )
+            if alternatives:
+                corrections.append({
+                    "original": original,
+                    "suggestion": original,
+                    "candidates": [_match_case(original, candidate) for candidate in alternatives],
+                })
             return original
 
         candidates = _ranked_candidates(normalized)
@@ -121,6 +216,7 @@ def suggest_corrections(text):
 
 def add_custom_word(word):
     """Persist a user-approved word so future OCR won't flag it."""
+    global _word_buckets
     normalized = (word or "").strip().casefold()
     if not normalized or len(normalized) > 64 or not VALID_CUSTOM_WORD.fullmatch(normalized):
         raise ValueError("Enter a single word containing letters or apostrophes.")
@@ -136,6 +232,7 @@ def add_custom_word(word):
             custom_file.write(normalized + "\n")
     _spell.word_frequency.load_words([normalized])
     _loaded_domain_words.add(normalized)
+    _word_buckets = None
     return normalized
 
 
